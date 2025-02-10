@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Pesquisa de Pokémons</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="icon" href="pikachu.png" type="png">
     <style>
         body {
-            background-color: #f0f8ff;
+            background: linear-gradient(to right, #f0f8ff, #ffffff);
             font-family: 'Arial', sans-serif;
         }
         .navbar {
             background-color: #ffcc00;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
         .navbar-brand img {
             filter: drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.5));
@@ -20,16 +22,22 @@
             color: #333;
             margin-bottom: 30px;
             font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
         }
         .input-group {
             max-width: 600px;
             margin: 0 auto 30px;
         }
         .card {
-    border: none;
-    border-radius: 15px;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3); /* Aumentei o desfoque e a opacidade */
-}
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s;
+            width: 15rem; 
+        }
+        .card:hover {
+            transform: scale(1.05);
+        }
         .card-title {
             font-size: 1.5rem;
             font-weight: bold;
@@ -44,10 +52,31 @@
         .btn-primary {
             background-color: #007bff;
             border-color: #007bff;
+            transition: background-color 0.3s, transform 0.2s;
         }
         .btn-primary:hover {
             background-color: #0056b3;
             border-color: #0056b3;
+            transform: scale(1.05);
+        }
+        .loading {
+            display: none;
+            margin: 20px auto;
+        }
+        .type-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            color: white;
+            margin: 2px;
+        }
+        .icon {
+            width: 50px; 
+            height: 50px; 
+        }
+        #pokemonImage {
+            width: 100%;
+            height: auto; 
         }
     </style>
 </head>
@@ -67,55 +96,139 @@
   <div class="input-group mb-3">
       <input type="text" id="pokemonInput" class="form-control" placeholder="Insira o nome do Pokémon" aria-label="Insira o nome do Pokémon" aria-describedby="button-addon2">
       <button class="bg-primary text-white btn btn-outline-secondary" type="button" id="searchButton">Pesquisar</button>
+      <button class="btn btn-outline-danger" type="button" id="clearButton">Limpar</button>
   </div>
 
-  <div class="card" id="pokemonInfo" style="width: 18rem; display: none; margin: 0 auto;">
-      <img id="pokemonImage" src="" class="card-img-top" alt="Imagem do Pokémon">
-      <div class="card-body">
-          <h5 class="card-title" id="pokemonName">Pokémon</h5>
+  <div class="loading" id="loading">Carregando...</div>
+
+  <div class="row justify-content-center">
+      <div class="col-md-5">
+          <div class="card" id="pokemonInfo" style="margin: 0 auto; display: none;">
+              <img id="pokemonImage" src="" class="card-img-top" alt="Imagem do Pokémon">
+              <div class="card-body">
+                  <h5 class="card-title" id="pokemonName">Pokémon</h5>
+              </div>
+              <ul class="list-group list-group-flush">
+                  <li class="list-group-item"><strong>Nome:</strong> <span id="pokemonNameInfo"></span></li>
+                  <li class="list-group-item"><strong>Altura:</strong> <span id="pokemonHeight"></span></li>
+                  <li class="list-group-item"><strong>Peso:</strong> <span id="pokemonWeight"></span></li>
+                  <li class="list-group-item"><strong>Tipos:</strong> <span id="pokemonTypes"></span></li>
+              </ul>
+          </div>
       </div>
-      <ul class="list-group list-group-flush">
-          <li class="list-group-item"><strong>Nome:</strong> <span id="pokemonNameInfo"></span></li>
-          <li class="list-group-item"><strong>Altura:</strong> <span id="pokemonHeight"></span></li>
-          <li class="list-group-item"><strong>Peso:</strong> <span id="pokemonWeight"></span></li>
-          <li class="list-group-item"><strong>Tipos:</strong> <span id="pokemonTypes"></span></li>
-      </ul>
+
+      <div class="col-md-5" style="margin-left: -100px;">
+          <div class="card" id="weaknessesInfo" style="margin: 0 auto; display: none;">
+              <div class="card-body">
+                  <h5 class="card-title">Fraquezas</h5>
+                  <img id="pokemonIcon" src="" class="icon" alt="Ícone do Pokémon">
+              </div>
+              <ul class="list-group list-group-flush">
+                  <li class="list-group-item"><strong>Fraquezas:</strong> <span id="pokemonWeaknesses"></span></li>
+              </ul>
+          </div>
+      </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
 <script>
-  document.getElementById('searchButton').addEventListener('click', function() {
-      const pokemonName = document.getElementById('pokemonInput').value.toLowerCase();
+const typeColors = {
+    normal: '#A8A77A',
+    fire: '#EE8130',
+    water: '#6390F0',
+    electric: '#F7D02C',
+    grass: '#7AC74C',
+    ice: '#96D9D6',
+    fighting: '#C22E28',
+    poison: '#A33EA1',
+    ground: '#E2BF65',
+    flying: '#A98FF3',
+    psychic: '#F95587',
+    bug: '#A6B91A',
+    rock: '#B6A136',
+    ghost: '#735797',
+    dragon: '#6F35FC',
+    dark: '#705746',
+    fairy: '#D685AD',
+    steel: '#B7B7CE',
+    unknown: '#000000',
+    shadow: '#000000'
+};
 
-      // Faz uma requisição à PokéAPI
-      fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`)
-          .then(response => {
-              if (!response.ok) {
-                  throw new Error('Pokémon não encontrado');
-              }
-              return response.json();
-          })
-          .then(data => {
-              const pokemon = data;
+document.getElementById('searchButton').addEventListener('click', function() {
+    const pokemonName = document.getElementById('pokemonInput').value.toLowerCase();
+    const loading = document.getElementById('loading');
+    loading.style.display = 'block'; // Mostrar carregando
 
-              if (pokemon) {
-                  document.getElementById('pokemonName').innerText = pokemon.name;
-                  document.getElementById('pokemonNameInfo').innerText = pokemon.name;
-                  document.getElementById('pokemonHeight').innerText = `${pokemon.height / 10} m`; // Altura em metros
-                  document.getElementById('pokemonWeight').innerText = `${pokemon.weight / 10} kg`; // Peso em quilogramas
-                  document.getElementById('pokemonTypes').innerText = pokemon.types.map(typeInfo => typeInfo.type.name).join(', ');
-                  document.getElementById('pokemonImage').src = pokemon.sprites.front_default;
-                  document.getElementById('pokemonInfo').style.display = 'block';
-              } else {
-                  alert('Pokémon não encontrado');
-              }
-          })
-          .catch(error => {
-              alert(error.message);
-          });
-  });
+    // Faz uma requisição à PokéAPI
+    fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Pokémon não encontrado');
+            }
+            return response.json();
+        })
+        .then(data => {
+            const pokemon = data;
+
+            if (pokemon) {
+                document.getElementById('pokemonName').innerText = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+                document.getElementById('pokemonNameInfo').innerText = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+                document.getElementById('pokemonHeight').innerText = `${pokemon.height / 10} m`; // Altura em metros
+                document.getElementById('pokemonWeight').innerText = `${pokemon.weight / 10} kg`; // Peso em quilogramas
+                
+                // Exibir tipos com cores
+                const typesContainer = document.getElementById('pokemonTypes');
+                typesContainer.innerHTML = ''; // Limpar tipos anteriores
+                pokemon.types.forEach(typeInfo => {
+                    const typeBadge = document.createElement('span');
+                    typeBadge.className = 'type-badge';
+                    typeBadge.style.backgroundColor = typeColors[typeInfo.type.name];
+                    typeBadge.innerText = typeInfo.type.name.charAt(0).toUpperCase() + typeInfo.type.name.slice(1);
+                    typesContainer.appendChild(typeBadge);
+                });
+
+                // Definir a imagem do Pokémon
+                document.getElementById('pokemonImage').src = pokemon.sprites.front_default;
+                document.getElementById('pokemonIcon').src = pokemon.sprites.front_default; // Usar a mesma imagem como ícone
+
+                // Obter fraquezas
+                return fetch(`https://pokeapi.co/api/v2/type/${pokemon.types[0].type.name}`);
+            }
+        })
+        .then(response => response.json())
+        .then(typeData => {
+            const weaknessesContainer = document.getElementById('pokemonWeaknesses');
+            weaknessesContainer.innerHTML = ''; // Limpar fraquezas anteriores
+            typeData.damage_relations.double_damage_from.forEach(weakness => {
+                const weaknessBadge = document.createElement('span');
+                weaknessBadge.className = 'type-badge';
+                weaknessBadge.style.backgroundColor = typeColors[weakness.name];
+                weaknessBadge.innerText = weakness.name.charAt(0).toUpperCase() + weakness.name.slice(1);
+                weaknessesContainer.appendChild(weaknessBadge);
+            });
+            document.getElementById('weaknessesInfo').style.display = 'block'; // Mostrar card de fraquezas
+        })
+        .catch(error => {
+            alert(error.message);
+        })
+        .finally(() => {
+            loading.style.display = 'none'; // Ocultar carregando
+            document.getElementById('pokemonInfo').style.display = 'block'; // Mostrar informações do Pokémon
+        });
+});
+
+// Função para limpar os resultados
+document.getElementById('clearButton').addEventListener('click', function() {
+    document.getElementById('pokemonInput').value = '';
+    document.getElementById('pokemonInfo').style.display = 'none';
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('pokemonTypes').innerHTML = ''; // Limpar tipos
+    document.getElementById('pokemonWeaknesses').innerHTML = ''; // Limpar fraquezas
+    document.getElementById('weaknessesInfo').style.display = 'none'; // Ocultar card de fraquezas
+});
 </script>
 </body>
 </html>
